@@ -344,6 +344,9 @@ use Symfony\Component\Console\Output\OutputInterface;
 
                 $snapshot_master = $array_snapshot;
 
+$json = json_encode($snapshot_master);
+$bytes = file_put_contents("/var/www/kplex-thing/snapshot.json", $json); 
+
                 if (microtime(true) - $microtime_log > $discord_message_period) {
                     // Dev Log with mongo/express stack.
 
@@ -398,6 +401,9 @@ $fix_sms = "FIX ";
                         ["snapshot"],
                         $snapshot_master
                     );
+
+
+
 
                     $microtime_log = microtime(true);
                 }
