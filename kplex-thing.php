@@ -242,11 +242,26 @@ use Symfony\Component\Console\Output\OutputInterface;
 
         //Wait for data.
         $read = [$socket];
-        $write = null;
-        $except = null;
-        while (true) {
+        $write = [];
+        $except = [];
+$seconds = 0;
+$microseconds = 0;
+//        while (true) {
             //        while (socket_select($read, $write, $except, null)) {
-            $udp_response = socket_select($read, $write, $except, null);
+//            $udp_response = socket_select($read, $write, $except, null);
+
+while (true) {
+        $read = [$socket];
+        $write = [];
+        $except = [];
+$seconds = 0;
+$microseconds = 0;
+
+$m = socket_select($read, $write, $except, $seconds, $microseconds);
+if ($m < 1) {
+// experimetning with CPU % top. This has no effect.
+//usleep(10000);
+continue;}
             $udp_packet = is_string($data = socket_read($socket, 5120));
 
             if ($tcp_flag) {
