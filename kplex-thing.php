@@ -90,7 +90,7 @@ use Symfony\Component\Console\Output\OutputInterface;
     ->setCode(function (InputInterface $input, OutputInterface $output) {
 
         $discord_message_period = 60 * 5;
-        $snapshot_period = 60;
+        $snapshot_period = 0.050; //-1
 
         $error_code = 0;
 
@@ -362,11 +362,13 @@ continue;}
 
 $json = json_encode($snapshot_master);
 $bytes = 0;
-                if (microtime(true) - $microtime_log > $snapshot_period) {
+if ($snapshot_period != -1) {
+                if (microtime(true) - $microtime_snapshot > $snapshot_period) {
 
 $bytes = file_put_contents("/var/www/kplex-thing/snapshot.json", $json); 
                 $microtime_snapshot = microtime(true);
 
+}
 }
 
                 if (microtime(true) - $microtime_log > $discord_message_period) {
