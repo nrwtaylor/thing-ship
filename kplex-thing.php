@@ -88,9 +88,8 @@ use Symfony\Component\Console\Output\OutputInterface;
     )
 
     ->setCode(function (InputInterface $input, OutputInterface $output) {
-
         $discord_message_period = 60 * 5;
-        $snapshot_period = 0.050; //-1
+        $snapshot_period = 0.1; //-1
 
         $error_code = 0;
 
@@ -228,6 +227,8 @@ use Symfony\Component\Console\Output\OutputInterface;
 
         //Set socket options.
         socket_set_nonblock($socket);
+        //        socket_set_block($socket);
+
         socket_set_option($socket, SOL_SOCKET, SO_BROADCAST, 1);
         socket_set_option($socket, SOL_SOCKET, SO_REUSEADDR, 1);
 
@@ -244,24 +245,25 @@ use Symfony\Component\Console\Output\OutputInterface;
         $read = [$socket];
         $write = [];
         $except = [];
-$seconds = 0;
-$microseconds = 0;
-//        while (true) {
-            //        while (socket_select($read, $write, $except, null)) {
-//            $udp_response = socket_select($read, $write, $except, null);
+        $seconds = 0;
+        $microseconds = 0;
+        //        while (true) {
+        //        while (socket_select($read, $write, $except, null)) {
+        //            $udp_response = socket_select($read, $write, $except, null);
 
-while (true) {
-        $read = [$socket];
-        $write = [];
-        $except = [];
-$seconds = 0;
-$microseconds = 0;
+        while (true) {
+            $read = [$socket];
+            $write = [];
+            $except = [];
+            $seconds = 0;
+            $microseconds = 0;
 
-$m = socket_select($read, $write, $except, $seconds, $microseconds);
-if ($m < 1) {
-// experimetning with CPU % top. This has no effect.
-//usleep(10000);
-continue;}
+            $m = socket_select($read, $write, $except, $seconds, $microseconds);
+            if ($m < 1) {
+                // experimetning with CPU % top. This has no effect.
+                //usleep(10000);
+                continue;
+            }
             $udp_packet = is_string($data = socket_read($socket, 5120));
 
             if ($tcp_flag) {
@@ -360,31 +362,46 @@ continue;}
 
                 $snapshot_master = $array_snapshot;
 
-$json = json_encode($snapshot_master);
-$bytes = 0;
-if ($snapshot_period != -1) {
-                if (microtime(true) - $microtime_snapshot > $snapshot_period) {
+                $json = json_encode($snapshot_master);
+                $bytes = 0;
+                if ($snapshot_period != -1) {
+                    if (
+                        microtime(true) - $microtime_snapshot >
+                        $snapshot_period
+                    ) {
+                        $bytes = file_put_contents(
+                            "/var/www/kplex-thing/snapshot.json",
+                            $json
+                        );
+                        $microtime_snapshot = microtime(true);
+                    }
+                }
 
-$bytes = file_put_contents("/var/www/kplex-thing/snapshot.json", $json); 
-                $microtime_snapshot = microtime(true);
-
-}
-}
-
-                if (microtime(true) - $microtime_log > $discord_message_period) {
+                if (
+                    microtime(true) - $microtime_log >
+                    $discord_message_period
+                ) {
                     // Dev Log with mongo/express stack.
 
                     // Send input to stack express node server.
                     $transducers = $snapshot_master["transducers"];
-//var_dump($snapshot_master);
-$fix_sms = "FIX ";
-    $fix_sms .= "Time " . $snapshot_master['fix_time'] . " ";
-//exit();
-    $fix_sms .= "Timestamp " . $snapshot_master['time_stamp'] . " ";
-    $fix_sms .= "Datestamp " . $snapshot_master['date_stamp'] . " ";
-    $fix_sms .= "Quality " . $snapshot_master['fix_quality'] . " ";
-    $fix_sms .= "Latitude " . $snapshot_master['current_latitude_decimal'] . " ";
-    $fix_sms .= "Longitude " . $snapshot_master['current_longitude_decimal'];
+                    //var_dump($snapshot_master);
+                    $fix_sms = "FIX ";
+                    $fix_sms .= "Time " . $snapshot_master["fix_time"] . " ";
+                    //exit();
+                    $fix_sms .=
+                        "Timestamp " . $snapshot_master["time_stamp"] . " ";
+                    $fix_sms .=
+                        "Datestamp " . $snapshot_master["date_stamp"] . " ";
+                    $fix_sms .=
+                        "Quality " . $snapshot_master["fix_quality"] . " ";
+                    $fix_sms .=
+                        "Latitude " .
+                        $snapshot_master["current_latitude_decimal"] .
+                        " ";
+                    $fix_sms .=
+                        "Longitude " .
+                        $snapshot_master["current_longitude_decimal"];
 
                     $m = "TRANSDUCERS ";
                     foreach ($transducers as $i => $j) {
@@ -425,9 +442,6 @@ $fix_sms = "FIX ";
                         ["snapshot"],
                         $snapshot_master
                     );
-
-
-
 
                     $microtime_log = microtime(true);
                 }
