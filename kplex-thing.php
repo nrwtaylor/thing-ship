@@ -88,8 +88,9 @@ use Symfony\Component\Console\Output\OutputInterface;
     )
 
     ->setCode(function (InputInterface $input, OutputInterface $output) {
+        echo "Start thing-ship-nmea.\n";
         $discord_message_period = 60 * 5;
-        $snapshot_period = 0.1; //-1
+        $snapshot_period = 0.05; //-1
 
         $error_code = 0;
 
@@ -184,6 +185,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 
         $tcp_flag = false;
         if ($tcp_flag === true) {
+            $thing->console("Start thing-ship-nmea.\n");
             echo "Start kplex TCP listener thing.\n";
             //        $address = "192.168.10.125";
             $address = "192.168.10.10";
@@ -310,8 +312,8 @@ use Symfony\Component\Console\Output\OutputInterface;
                 //                outputVariable($thing, $snapshot);
                 //                printStack($thing, $datagram_stack);
                 $ship_handler->set();
-
-                if (microtime(true) - $microtime_display > 1.0) {
+$displayFlag = 'off';
+                if ((microtime(true) - $microtime_display > 1.0) and ($displayFlag === 'on')) {
                     $thing->console("Ship ID: " . $ship_id . "\n");
                     $thing->console(
                         "ship_id: " . $ship_handler->ship_id . "\n"
@@ -377,9 +379,11 @@ use Symfony\Component\Console\Output\OutputInterface;
                     }
                 }
 
+                $discordFlag = "on";
                 if (
                     microtime(true) - $microtime_log >
-                    $discord_message_period
+                        $discord_message_period and
+                    $discordFlag === "on"
                 ) {
                     // Dev Log with mongo/express stack.
 
@@ -452,242 +456,6 @@ use Symfony\Component\Console\Output\OutputInterface;
             echo "Error: unexpected fgets() fail\n";
         }
         fclose($fp);
-
-        exit();
-
-        if (isset($thing->thing) and $thing->thing != false) {
-            $f = trim(str_replace($uuid, "", $input));
-            if ($f == "" or $f == "agent") {
-                $agent = new Uuid($thing, $f);
-                $this->thing_report = $agent->thing_report;
-                return;
-            }
-            $agent = new Agent($thing, $f);
-
-            $this->thing_report = $agent->thing_report;
-            return;
-        }
-
-        $thing->Create($from, $to, $message, $agent_input);
-
-        // Tag as console input
-        $console = new \Nrwtaylor\StackAgentThing\Channel($thing, "console");
-
-        // Get the handler which takes the short message.
-        // e.g. Gearman, direct PHP call, Apache request ...
-
-        $handler = strtolower($input->getOption("handler"));
-
-        switch ($handler) {
-            case "gearman":
-                // Build, send and receive the Gearman datagram.
-                $arr = json_encode([
-                    "to" => $from,
-                    "from" => "agent",
-                    "subject" => $message,
-                    "agent_input" => $agent_input,
-                ]);
-                $client = new \GearmanClient();
-                $client->addServer();
-                $thing_string = $client->doNormal("call_agent", $arr);
-
-                // To reduce load Gearman can handle calls in the background.
-                // $client->doHighBackground("call_agent", $arr);
-
-                if ($thing_string == "") {
-                    // TODO: Handle null strings from Gearman.
-                    // For now echo to console.
-                    echo "Null string returned from GEARMAN\n";
-                }
-
-                $thing_report = json_decode($thing_string, true);
-                break;
-            default:
-                // Default console handler is SMS.
-                $handler = $default_handler;
-                $agent = new \Nrwtaylor\StackAgentThing\Agent(
-                    $thing,
-                    $agent_input
-                );
-
-                $thing_report = $agent->thing_report;
-        }
-
-        $response = "";
-
-        $response .= responseLog($log, $thing, $thing_report);
-
-        // See handling command line options.
-        // https://symfony.com/doc/current/console/input.html
-        $channel = $input->getOption("channel");
-
-        if ($channel == false) {
-            $channel = $default_channel;
-        }
-
-        $text_response = "No text response.";
-        if (isset($thing_report[$channel])) {
-            $text_response = $thing_report[$channel];
-
-            if ($channel == "log") {
-                $text_response = preg_replace(
-                    "#<br\s*/?>#i",
-                    "\n",
-                    $text_response
-                );
-            }
-        }
-
-        $response .= $text_response;
-
-        $channels = strtolower($input->getOption("show-channels"));
-
-        if ($channels == true) {
-            $channels_text = "";
-            foreach ($thing_report as $channel => $value) {
-                $channels_text .= $channel . " ";
-            }
-            $response .= "\n" . trim($channels_text);
-        }
-
-        $urls = strtolower($input->getOption("show-urls"));
-        $urls_text = "";
-        if ($urls == true) {
-            if (isset($agent->link)) {
-                $urls_text .= $agent->link . "\n";
-            }
-            if (isset($agent->url)) {
-                $urls_text .= $agent->url . "\n";
-            }
-            if (isset($agent->urls)) {
-                $urls_text .= implode("\n", $agent->urls) . "\n";
-            }
-            $response .= "\n" . trim($urls_text);
-        }
-
-        $text_handler = new \Nrwtaylor\StackAgentThing\Text($thing, "text");
-
-        $query_handler = new \Nrwtaylor\StackAgentThing\Query($thing, "query");
-
-        if ($watch !== false) {
-            [$log_includes, $log_excludes] = $query_handler->parseQuery($watch);
-
-            $watch_flag = $text_handler->filterText(
-                $text_response,
-                $log_includes,
-                $log_excludes
-            );
-            if ($watch_flag !== true) {
-                //$error_code = 1;
-                $flag_match = 0; // Found a match
-            }
-        }
-
-        if ($regex !== false) {
-            $pattern = $regex;
-            $regex_flag = preg_match($pattern, $text_response);
-            if ($regex_flag === 0) {
-                $regex_flag = true;
-            } else {
-                $regex_flag = false;
-            }
-            if ($regex_flag !== true) {
-                //$error_code = 1;
-                $flag_match = 0; // Found a match.
-            }
-        }
-
-        /*
-Claws options to test:  "0 (passed)", "non-0 (failed)"
-So in this content. "Failed to find a match" is 1.
-*/
-
-        $meta = strtolower($input->getOption("meta"));
-
-        if ($meta == false) {
-            $meta = $default_meta;
-        }
-
-        if ($meta == "stack" or $meta == "on") {
-            $meta_response = "";
-            $agentclock = new \Nrwtaylor\StackAgentThing\Clocktime(
-                $thing,
-                "clocktime"
-            );
-
-            $meta_response .=
-                strtoupper($handler) .
-                " " .
-                number_format($thing->elapsed_runtime()) .
-                "ms";
-            $meta_response .= " " . $from;
-            $agentclock->makeClocktime();
-            $meta_response .=
-                "\n" . $agentclock->clock_time . " " . $thing->nuuid;
-
-            $prior = new \Nrwtaylor\StackAgentThing\Prior($thing, "prior");
-            $meta_response .= " " . substr($prior->prior_uuid, 0, 4);
-
-            if (isset($watch_flag) and $watch_flag !== true) {
-                $meta_response .= " WATCH FLAG";
-            }
-
-            if (
-                (isset($regex_flag) or isset($watch_flag)) and
-                $regex_flag !== true
-            ) {
-                $meta_response .= $regex_error == "" ? "" : " " . $regex_error;
-            }
-            if (isset($regex_flag) and $regex_flag !== true) {
-                $meta_response .= " REGEX FLAG";
-            }
-
-            // Determine responsiveness.
-            // Did the stack provide a thing, a thing and a response ...
-            // Did the stack respond?
-            $stack_text = "No stack response.";
-            if (isset($thing_report)) {
-                if ($prior->prior_uuid == false) {
-                    $stack_text = "Persistent stack not found.";
-                } else {
-                    $stack_text = "Memory available.";
-                }
-                if (
-                    isset($thing_report["thing"]) and
-                    $thing_report["thing"] == false
-                ) {
-                    $stack_text = "No thing provided in response.";
-                }
-
-                if (isset($thing_report["thing"]->from)) {
-                    $stack_text = "Added to stack.";
-
-                    if ($thing_report["thing"]->from == null) {
-                        $stack_text = "Null stack.";
-                    }
-                }
-            }
-
-            $meta_response .= " " . $stack_text;
-        }
-
-        $output->writeln("<info>$response</info>");
-
-        if (isset($meta_response)) {
-            $output->writeln("<comment>$meta_response</comment>");
-        }
-        // If error flagging is on, then return the generated error code.
-        // Claws uses this with a test filter
-        // And it is a common way of returning a signal from a
-        // shell or perl script.
-
-        // Use --flag-error to request this.
-
-        $flag_error = strtolower($input->getOption("flag-error"));
-        if ($flag_error == true) {
-            return $flag_match; //0 --- match found, 1 --- failed to find match
-            //return $error_code;
-        }
 
         return 0;
     })
@@ -1009,7 +777,10 @@ function printTransducers($thing, $snapshot)
 
     foreach ($snapshot->transducers as $transducer_id => $transducer) {
         //    $thing->transducers = $filtered_transducers;
+$printFlag = 'off';
+if ($printFlag === 'on') {
         printTransducer($transducer);
+}
         /*
         echo "transducer " .
             //                        $uuid .
@@ -1118,7 +889,8 @@ function printTransducers($thing, $snapshot)
 
     foreach ($filtered_transducers as $id => $transducer) {
         //    $thing->transducers = $filtered_transducers;
-
+printTransducer2($transducer);
+/*
         echo "transducer " .
             //                        $uuid .
             //                        " " .
@@ -1138,6 +910,7 @@ function printTransducers($thing, $snapshot)
             " " .
             $transducer["units"] .
             "\n";
+*/
         //var_dump($transducer);
         //$thing->transducers[$id] = $transducer;
     }
@@ -1167,6 +940,27 @@ function printTransducers($thing, $snapshot)
             //            }
         }
     }
+}
+function printTransducer2($trandsucer) {
+        echo "transducer " .
+            //                        $uuid .
+            //                        " " .
+            //                        $transducer_id .
+            //                        " " .
+            $transducer["sensor_id"] .
+            " " .
+            $transducer["talker_identifier"] .
+            //                        "" .
+            //                        $id .
+            "" .
+            $transducer["type"] .
+            " " .
+            $transducer["name"] .
+            " " .
+            $transducer["amount"] .
+            " " .
+            $transducer["units"] .
+            "\n";
 }
 
 function custom_sort($a, $b)
