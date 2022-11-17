@@ -88,11 +88,9 @@ use Symfony\Component\Console\Output\OutputInterface;
     )
 
     ->setCode(function (InputInterface $input, OutputInterface $output) {
-        echo "thing-ship 1.0.0 16 November 2022 start\n";
+        echo "Start thing-ship-nmea.\n";
         $discord_message_period = 60 * 5;
-        //        $snapshot_period = 0.05; //-1
-
-        $snapshot_period = 0.01; // 100Hz //-1
+        $snapshot_period = 0.05; //-1
 
         $error_code = 0;
 
@@ -185,24 +183,10 @@ use Symfony\Component\Console\Output\OutputInterface;
 
         $thing->Create($from, $to, "ship");
 
-        $thing->console(
-            "kplex-thing thing watch " .
-                $watch .
-                " log " .
-                $log .
-                " handler " .
-                $handler
-        );
-
-        // THis is development code to list to the tcp port directly nmea messages.
-        // Have focused mostly on UDP as this is a more resilient station to station
-        // broadcast for individual things to use.
         $tcp_flag = false;
         if ($tcp_flag === true) {
-            $thing->console(
-                "start thing-ship-nmea kplex TCP listener thing.\n"
-            );
-            //echo "Start kplex TCP listener thing.\n";
+            $thing->console("Start thing-ship-nmea.\n");
+            echo "Start kplex TCP listener thing.\n";
             //        $address = "192.168.10.125";
             $address = "192.168.10.10";
             $port = "10110";
@@ -221,17 +205,12 @@ use Symfony\Component\Console\Output\OutputInterface;
         $ship_handler = new \Nrwtaylor\StackAgentThing\Ship($thing, "ship");
         $ship_handler->readSubject("ships");
 
-        printShip($thing, $ship_handler);
-
         if (substr($ship_handler->thing_report["sms"], 0, 6) == "SHIP X") {
             $thing = new \Nrwtaylor\StackAgentThing\Thing(null);
             $thing->Create($from, $to, "new ship");
-            echo "ship-thing created new ship thing";
+            echo "Created ship thing.";
             $ship_handler = new \Nrwtaylor\StackAgentThing\Ship($thing, "ship");
         }
-
-        $thing->console("ship-thing starting " . "\n");
-
         $sms = $ship_handler->thing_report["sms"];
 
         $ship_id = substr($sms, 5, 4);
@@ -270,72 +249,50 @@ use Symfony\Component\Console\Output\OutputInterface;
         $except = [];
         $seconds = 0;
         $microseconds = 0;
-
-        $thing->console("ship-thing socket connected " . "\n");
-
-
-        $discord_handler = new \Nrwtaylor\StackAgentThing\Discord(
-            null,
-            "discord"
-        );
-
-        $data_thing = new \Nrwtaylor\StackAgentThing\Thing(null);
-        $data_thing->Create("kokopelli iv", "datalog", "log");
-
-        //while (true) {
-        //$read = [$socket];
-        //$write = [];
-        //$except = [];
-        //$seconds = 0;
-        //$microseconds = 0;
-
-        $m = socket_select($read, $write, $except, $seconds, $microseconds);
-        if ($m < 1) {
-            // experimetning with CPU % top. This has no effect.
-            //usleep(10000);
-            //      continue;
-        }
-        $loop_count = 0;
-        $udp_count = 0;
-        $microtime_loop = microtime(true);
+        //        while (true) {
+        //        while (socket_select($read, $write, $except, null)) {
+        //            $udp_response = socket_select($read, $write, $except, null);
 
         while (true) {
-            $loop_time = microtime(true) - $microtime_loop;
-            $microtime_loop = microtime(true);
+            $read = [$socket];
+            $write = [];
+            $except = [];
+            $seconds = 0;
+            $microseconds = 0;
 
-            $loop_count += 1;
-
+            $m = socket_select($read, $write, $except, $seconds, $microseconds);
+            if ($m < 1) {
+                // experimetning with CPU % top. This has no effect.
+                //usleep(10000);
+                continue;
+            }
             $udp_packet = is_string($data = socket_read($socket, 5120));
 
             if ($tcp_flag) {
                 $tcp_packet = ($buffer = fgets($fp, 4096)) !== false;
             }
-
             //Read received packets with a maximum size of 5120 bytes.
             //       while (is_string($data = socket_read($socket, 5120))) {
-
             if ($udp_packet) {
-                $udp_count += 1;
-                $udp_time = microtime(true) - $microtime_udp;
-                $microtime_udp = microtime(true);
-
+                //                echo $data;
+                //                var_dump($data);
+                //                echo "rnrn";
                 if ($data == "") {
                     continue;
                 }
+                //            }
+                //        }
+
+                //        while (($buffer = fgets($fp, 4096)) !== false) {
                 $buffer = $data;
 
                 // Call the ship handler and have it read the NMEA string
                 // It will generate a variable with the current ship state as read.
                 $response = $ship_handler->readShip($buffer);
 
-                $loop_count = 0;
-
-                // Get the last recognized sentence
-                // THis lets this client sample the NMEA dataflow.
                 $recognized_sentence =
                     $ship_handler->ship_thing->variables->snapshot
                         ->recognized_sentence;
-
                 $sentence_identifier =
                     $ship_handler->ship_thing->variables->snapshot
                         ->sentence_identifier;
@@ -346,7 +303,6 @@ use Symfony\Component\Console\Output\OutputInterface;
                     ) {
                         $unrecognized_sentences[] = $sentence_identifier;
                     }
-                    continue;
                 }
 
                 $datagram_stack = stack($datagram_stack, $buffer);
@@ -356,12 +312,22 @@ use Symfony\Component\Console\Output\OutputInterface;
                 //                outputVariable($thing, $snapshot);
                 //                printStack($thing, $datagram_stack);
                 $ship_handler->set();
-                $displayFlag = "off";
-                if (
-                    microtime(true) - $microtime_display > 1.0 and
-                    $displayFlag === "on"
-                ) {
-                    $thing->console("sms " . $sms . "\n");
+$displayFlag = 'off';
+                if ((microtime(true) - $microtime_display > 1.0) and ($displayFlag === 'on')) {
+                    $thing->console("Ship ID: " . $ship_id . "\n");
+                    $thing->console(
+                        "ship_id: " . $ship_handler->ship_id . "\n"
+                    );
+                    $thing->console("thing uuid: " . $thing->uuid . "\n");
+
+                    $thing->console("thing from: " . $thing->from . "\n");
+                    $thing->console(
+                        "ship thing nom_from: " .
+                            $ship_handler->ship_thing->from .
+                            "\n"
+                    );
+
+                    $thing->console("Last message: " . $sms . "\n");
                     //$thing->console("Last set time: " . $last_set_time . "\n");
                     $thing->console(
                         "Last response: " . $ship_handler->response . "\n"
@@ -370,80 +336,33 @@ use Symfony\Component\Console\Output\OutputInterface;
                         "Thing UUID: " . $ship_handler->uuid . "\n"
                     );
 
+                    $thing->console(
+                        "Unrecognized sentences: " .
+                            implode(" ", $unrecognized_sentences) .
+                            "\n"
+                    );
+
                     outputVariable($thing, $snapshot);
                     printStack($thing, $datagram_stack);
 
-                    printMemory($thing, $ship_handler);
-
                     $microtime_display = microtime(true);
                 }
 
-                $statusFlag = "on";
-                if (
-                    microtime(true) - $microtime_display > 1.0 and
-                    $statusFlag === "on"
-                ) {
-                    $thing->console(
-                        "ship-thing ship handler text " .
-                            $ship_handler->text .
-                            "\n"
-                    );
+                //if (!isset($snapshot_master)) {$snapshot_master = $snapshot;}
 
-                    $thing->console(
-                        "ship-thing udp count " . $udp_count . "\n"
-                    );
-                    // Reset UDP counter
-                    $udp_count = 0;
+                $array_snapshot = json_decode(json_encode($snapshot), true);
+                //if (!isset($snapshot_master)) {$snapshot_master = $snapshot;}
 
-                    if (count($unrecognized_sentences) > 0) {
-                        $thing->console(
-                            "ship-thing unrecognized sentences " .
-                                implode(" ", $unrecognized_sentences) .
-                                "\n"
-                        );
-                    }
-
-                    $microtime_display = microtime(true);
+                if (!isset($snapshot_master)) {
+                    $snapshot_master = $array_snapshot;
                 }
 
-                $memoryFlag = "on";
-                if (
-                    microtime(true) - $microtime_memory > 1.0 and
-                    $memoryFlag === "on"
-                ) {
-                    printMemory($thing, $ship_handler);
-                    $microtime_memory = microtime(true);
-                }
+                //array_merge_recursive_simple($snapshot_master, $array_snapshot);
+                //array_merge_recursive_ex($snapshot_master, $array_snapshot);
 
-                $messageShipInterval = 2;
-                $messageShipFlag = "off";
-                if (
-                    microtime(true) - $microtime_message >
-                        $messageShipInterval and
-                    $messageShipFlag === "on"
-                ) {
-                    //$text = $recognized_sentence;
-                    $text = $ship_handler->text;
-                    $thing->console("ship-thing message text " . $text . "\n");
+                //$snapshot_master = drupal_array_merge_deep_array([$snapshot_master, $array_snapshot]);
 
-                    $ship_handler->forgetResponse();
-                    $ship_handler->readSubject($text);
-                    $sms = $ship_handler->thing_report["sms"];
-                    $run_time = $ship_handler->thing_report["run_time"];
-
-                    $thing->console(
-                        "ship-thing message sms " .
-                            $sms .
-                            " " .
-                            $runtime .
-                            " ms" .
-                            "\n"
-                    );
-
-                    $microtime_message = microtime(true);
-                }
-
-                $snapshot_master = json_decode(json_encode($snapshot), true);
+                $snapshot_master = $array_snapshot;
 
                 $json = json_encode($snapshot_master);
                 $bytes = 0;
@@ -494,10 +413,10 @@ use Symfony\Component\Console\Output\OutputInterface;
                         $m .= $j["name"] . " " . $j["amount"] . " ";
                     }
 
-                    //                    $discord_handler = new \Nrwtaylor\StackAgentThing\Discord(
-                    //                        null,
-                    //                        "discord"
-                    //                    );
+                    $discord_handler = new \Nrwtaylor\StackAgentThing\Discord(
+                        null,
+                        "discord"
+                    );
                     $discord_handler->sendDiscord(
                         $m,
                         "kokopelli:#general@kaiju.discord"
@@ -508,22 +427,19 @@ use Symfony\Component\Console\Output\OutputInterface;
                         "kokopelli:#general@kaiju.discord"
                     );
 
-                    $thing->console("ship-thing log discord done");
-
-                    $whitefoxFlag = true;
-                    if ($whitefoxFlag) {
-                        $array = ["merp" => "merp"];
-                        $response = file_get_contents(
-                            "http://192.168.10.10/api/whitefox/" . $buffer
-                        );
-                    }
-
-                    $thing->console("ship-thing log whitefox done");
-
+                    //exit();
+                    //var_dump("sendDiscord instruction sent");
+                    $array = ["merp" => "merp"];
+                    $response = file_get_contents(
+                        "http://192.168.10.10/api/whitefox/" . $buffer
+                    );
                     //$response = file_get_contents("http://localhost:3001/" . $buffer);
                     //var_dump($response);
-                    //$data_thing = new \Nrwtaylor\StackAgentThing\Thing(null);
-                    //$data_thing->Create("kokopelli iv", "datalog", "log");
+                    $data_thing = new \Nrwtaylor\StackAgentThing\Thing(null);
+                    $data_thing->Create("kokopelli iv", "datalog", "log");
+
+                    //$discord_handler = new \Nrwtaylor\StackAgentThing\Discord($data_thing,"discord");
+                    //$discord_handler->sendDiscord('kokopelli:#general@kaiju.discord','Test');
 
                     $data_thing->json->setField("variables");
                     $data_thing->json->writeVariable(
@@ -531,13 +447,9 @@ use Symfony\Component\Console\Output\OutputInterface;
                         $snapshot_master
                     );
 
-                 $thing->console("ship-thing json write variable snapshot done");
-
                     $microtime_log = microtime(true);
                 }
             }
-
-            // End of loop
         }
 
         if (!feof($fp)) {
@@ -755,7 +667,6 @@ function stack($datagram_stack, $datagram)
     }
 
     $datagram_stack[] = $datagram;
-    //echo "datagram stack length " . count($datagram_stack) . "\r\n";
     return $datagram_stack;
 }
 
@@ -866,10 +777,10 @@ function printTransducers($thing, $snapshot)
 
     foreach ($snapshot->transducers as $transducer_id => $transducer) {
         //    $thing->transducers = $filtered_transducers;
-        $printFlag = "off";
-        if ($printFlag === "on") {
-            printTransducer($transducer);
-        }
+$printFlag = 'off';
+if ($printFlag === 'on') {
+        printTransducer($transducer);
+}
         /*
         echo "transducer " .
             //                        $uuid .
@@ -977,10 +888,39 @@ function printTransducers($thing, $snapshot)
     // Define the custom sort function
 
     foreach ($filtered_transducers as $id => $transducer) {
-        printTransducer2($transducer);
+        //    $thing->transducers = $filtered_transducers;
+printTransducer2($transducer);
+/*
+        echo "transducer " .
+            //                        $uuid .
+            //                        " " .
+            //                        $transducer_id .
+            //                        " " .
+            $transducer["sensor_id"] .
+            " " .
+            $transducer["talker_identifier"] .
+            //                        "" .
+            //                        $id .
+            "" .
+            $transducer["type"] .
+            " " .
+            $transducer["name"] .
+            " " .
+            $transducer["amount"] .
+            " " .
+            $transducer["units"] .
+            "\n";
+*/
+        //var_dump($transducer);
+        //$thing->transducers[$id] = $transducer;
     }
 
+    //$thing->transducers = [];
+    //$thing->transducers = $filtered_transducers;
+    //$thing->transducers =[];
+
     foreach ($snapshot as $key => $value) {
+        //var_dump($key);
         if ($uuid_handler->isUuid($key)) {
             //            $transducer_flag = false;
             //            $transducer_id = $key;
@@ -1001,27 +941,26 @@ function printTransducers($thing, $snapshot)
         }
     }
 }
-function printTransducer2($trandsucer)
-{
-    echo "transducer " .
-        //                        $uuid .
-        //                        " " .
-        //                        $transducer_id .
-        //                        " " .
-        $transducer["sensor_id"] .
-        " " .
-        $transducer["talker_identifier"] .
-        //                        "" .
-        //                        $id .
-        "" .
-        $transducer["type"] .
-        " " .
-        $transducer["name"] .
-        " " .
-        $transducer["amount"] .
-        " " .
-        $transducer["units"] .
-        "\n";
+function printTransducer2($trandsucer) {
+        echo "transducer " .
+            //                        $uuid .
+            //                        " " .
+            //                        $transducer_id .
+            //                        " " .
+            $transducer["sensor_id"] .
+            " " .
+            $transducer["talker_identifier"] .
+            //                        "" .
+            //                        $id .
+            "" .
+            $transducer["type"] .
+            " " .
+            $transducer["name"] .
+            " " .
+            $transducer["amount"] .
+            " " .
+            $transducer["units"] .
+            "\n";
 }
 
 function custom_sort($a, $b)
@@ -1089,42 +1028,4 @@ function printVariables($thing, $ship_handler, $label = null)
 Read a string to determine what to include or exclude.
 
 */
-
-function sizeObject($obj)
-{
-    $mem = memory_get_usage();
-    $DB_tmp = clone $obj;
-    $mem = memory_get_usage() - $mem;
-    unset($DB_tmp);
-    return $mem;
-}
-
-function printMemory($thing, $ship_handler)
-{
-    $t = sizeObject($thing);
-    $s = sizeObject($ship_handler);
-
-    /* Currently used memory */
-    $mem_usage = memory_get_usage();
-
-    /* Peak memory usage */
-    $mem_peak = memory_get_peak_usage();
-    echo "ship-thing memory current " . round($mem_usage / 1024) . "KB" . " ";
-    echo "peak " . round($mem_peak / 1024) . "KB" . "\n";
-
-    //    echo "thing " . round($t / 1024) . "KB" . "\n";
-    //    echo "ship handler " . round($s / 1024) . "KB" . "\n";
-}
-
-function printShip($thing, $ship_handler)
-{
-    $thing->console("ship id " . $ship_id . "\n");
-    $thing->console("ship_id: " . $ship_handler->ship_id . "\n");
-    $thing->console("thing uuid " . $thing->uuid . "\n");
-
-    $thing->console("thing from " . $thing->from . "\n");
-    $thing->console(
-        "ship thing nom_from: " . $ship_handler->ship_thing->from . "\n"
-    );
-}
 
