@@ -191,7 +191,8 @@ use Symfony\Component\Console\Output\OutputInterface;
                 " log " .
                 $log .
                 " handler " .
-                $handler
+                $handler .
+                "\n"
         );
 
         // THis is development code to list to the tcp port directly nmea messages.
@@ -226,7 +227,7 @@ use Symfony\Component\Console\Output\OutputInterface;
         if (substr($ship_handler->thing_report["sms"], 0, 6) == "SHIP X") {
             $thing = new \Nrwtaylor\StackAgentThing\Thing(null);
             $thing->Create($from, $to, "new ship");
-            echo "ship-thing created new ship thing";
+            $thing->console("ship-thing created new ship thing\n");
             $ship_handler = new \Nrwtaylor\StackAgentThing\Ship($thing, "ship");
         }
 
@@ -272,7 +273,6 @@ use Symfony\Component\Console\Output\OutputInterface;
         $microseconds = 0;
 
         $thing->console("ship-thing socket connected " . "\n");
-
 
         $discord_handler = new \Nrwtaylor\StackAgentThing\Discord(
             null,
@@ -349,8 +349,30 @@ use Symfony\Component\Console\Output\OutputInterface;
                     continue;
                 }
 
-                $datagram_stack = stack($datagram_stack, $buffer);
+                $datagram_stack = stack(
+                    $datagram_stack,
+                    ["subject" => $buffer],
+                    1000
+                );
 
+                // Look for previous recent occurences of the same string.
+                // To filter out and reduce processing burden.
+                $count = 0;
+                foreach ($datagram_stack as $u => $datagram) {
+                    //var_dump($u);
+                    if ($buffer === $datagram["subject"]) {
+                        //$thing->console("Saw " .$datagram['subject'] . "\n");
+                        $count += 1;
+                    }
+                }
+
+                if ($count > 3) {
+                    //$thing->console("Saw +3 of " .$datagram['subject'] . "\n");
+
+                    continue;
+                }
+
+                //var_dump("stack", $datagram_stack);
                 $snapshot = $ship_handler->ship_thing->variables->snapshot;
 
                 //                outputVariable($thing, $snapshot);
@@ -531,7 +553,9 @@ use Symfony\Component\Console\Output\OutputInterface;
                         $snapshot_master
                     );
 
-                 $thing->console("ship-thing json write variable snapshot done");
+                    $thing->console(
+                        "ship-thing json write variable snapshot done"
+                    );
 
                     $microtime_log = microtime(true);
                 }
@@ -741,9 +765,9 @@ function array_merge_recursive_distinct(array &$array1, array &$array2)
     return $merged;
 }
 
-function stack($datagram_stack, $datagram)
+function stack($datagram_stack, $datagram, $max = 10)
 {
-    $max = 10;
+    //    $max = 10;
     if (!isset($datagram_stack)) {
         $datagram_stack = [];
     }
@@ -754,6 +778,8 @@ function stack($datagram_stack, $datagram)
         array_splice($datagram_stack, 0, $stack_height - $max);
     }
 
+    $datagram["createdAt"] = 0.0;
+
     $datagram_stack[] = $datagram;
     //echo "datagram stack length " . count($datagram_stack) . "\r\n";
     return $datagram_stack;
@@ -762,7 +788,7 @@ function stack($datagram_stack, $datagram)
 function printStack($thing, $datagram_stack)
 {
     foreach ($datagram_stack as $i => $datagram) {
-        $thing->console(trim($datagram) . "\r\n");
+        $thing->console(trim($datagram["subject"]) . "\r\n");
     }
 }
 
