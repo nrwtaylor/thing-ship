@@ -297,6 +297,7 @@ use Symfony\Component\Console\Output\OutputInterface;
         }
         $loop_count = 0;
         $udp_count = 0;
+        $packet_count = 0;
         $microtime_loop = microtime(true);
 
         while (true) {
@@ -371,6 +372,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 
                     continue;
                 }
+$packet_count += 1;
 
                 //var_dump("stack", $datagram_stack);
                 $snapshot = $ship_handler->ship_thing->variables->snapshot;
@@ -412,10 +414,11 @@ use Symfony\Component\Console\Output\OutputInterface;
                     );
 
                     $thing->console(
-                        "ship-thing udp count " . $udp_count . "\n"
+                        "ship-thing udp count " . $udp_count . " packet count " . $packet_count .  "\n"
                     );
                     // Reset UDP counter
                     $udp_count = 0;
+                    $packet_count = 0;
 
                     if (count($unrecognized_sentences) > 0) {
                         $thing->console(
