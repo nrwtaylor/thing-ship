@@ -279,6 +279,12 @@ use Symfony\Component\Console\Output\OutputInterface;
             "discord"
         );
 
+        $degree_handler = new \Nrwtaylor\StackAgentThing\Degree(
+            null,
+            "degree"
+        );
+
+
         $data_thing = new \Nrwtaylor\StackAgentThing\Thing(null);
         $data_thing->Create("kokopelli iv", "datalog", "log");
 
@@ -358,6 +364,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 
                 // Look for previous recent occurences of the same string.
                 // To filter out and reduce processing burden.
+/*
                 $count = 0;
                 foreach ($datagram_stack as $u => $datagram) {
                     //var_dump($u);
@@ -373,7 +380,7 @@ use Symfony\Component\Console\Output\OutputInterface;
                     continue;
                 }
 $packet_count += 1;
-
+*/
                 //var_dump("stack", $datagram_stack);
                 $snapshot = $ship_handler->ship_thing->variables->snapshot;
 
@@ -507,11 +514,11 @@ $packet_count += 1;
                         "Quality " . $snapshot_master["fix_quality"] . " ";
                     $fix_sms .=
                         "Latitude " .
-                        $snapshot_master["current_latitude_decimal"] .
+                        $degree_handler->decimalToDegree($snapshot_master["current_latitude_decimal"]) .
                         " ";
                     $fix_sms .=
                         "Longitude " .
-                        $snapshot_master["current_longitude_decimal"];
+                        $degree_handler->decimalToDegree($snapshot_master["current_longitude_decimal"]);
 
                     $m = "TRANSDUCERS ";
                     foreach ($transducers as $i => $j) {
