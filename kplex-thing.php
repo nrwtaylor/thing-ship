@@ -286,7 +286,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 
         $data_thing = new \Nrwtaylor\StackAgentThing\Thing(null);
-        $data_thing->Create("kokopelli iv", "datalog", "log");
+        $data_thing->Create("kokopelli", "datalog", "log");
 
         //while (true) {
         //$read = [$socket];
