@@ -540,6 +540,17 @@ $packet_count += 1;
                         "kokopelli:#general@kaiju.discord"
                     );
 
+    $alert_handler = new \Nrwtaylor\StackAgentThing\Alert($thing, "alert");
+
+
+
+                    $discord_handler->sendDiscord(
+                        $alert_handler->sms,
+                        "kokopelli:#general@kaiju.discord"
+                    );
+
+
+
                     $thing->console("ship-thing log discord done");
 
                     $whitefoxFlag = true;
