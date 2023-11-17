@@ -329,12 +329,11 @@ use Symfony\Component\Console\Output\OutputInterface;
                 if ($data == "") {
                     continue;
                 }
+//$thing->console($data . "\n");
                 $buffer = $data;
-
                 // Call the ship handler and have it read the NMEA string
                 // It will generate a variable with the current ship state as read.
                 $response = $ship_handler->readShip($buffer);
-
                 $loop_count = 0;
 
                 // Get the last recognized sentence
@@ -346,7 +345,9 @@ use Symfony\Component\Console\Output\OutputInterface;
                 $sentence_identifier =
                     $ship_handler->ship_thing->variables->snapshot
                         ->sentence_identifier;
-
+// Commented out 17 November 2023.
+// Just one unrecognized sentence will stop all sentence reading.
+/*
                 if ($recognized_sentence === "N") {
                     if (
                         !in_array($sentence_identifier, $unrecognized_sentences)
@@ -355,6 +356,7 @@ use Symfony\Component\Console\Output\OutputInterface;
                     }
                     continue;
                 }
+*/
 
                 $datagram_stack = stack(
                     $datagram_stack,
@@ -484,6 +486,7 @@ $packet_count += 1;
                         microtime(true) - $microtime_snapshot >
                         $snapshot_period
                     ) {
+$thing->console("snapshot period");
                         $bytes = file_put_contents(
                             "/var/www/kplex-thing/snapshot.json",
                             $json
@@ -540,12 +543,10 @@ $packet_count += 1;
                         "kokopelli:#general@kaiju.discord"
                     );
 
+
     $alert_handler = new \Nrwtaylor\StackAgentThing\Alert($thing, "alert");
-
-
-
                     $discord_handler->sendDiscord(
-                        $alert_handler->sms,
+                        $alert_handler->sms_message,
                         "kokopelli:#general@kaiju.discord"
                     );
 
